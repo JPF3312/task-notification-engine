@@ -1,0 +1,58 @@
+const express = require('express');
+const http = require('http');
+const path = require('path');
+const { Server } = require('socket.io');
+const Redis = require('ioredis');
+require('dotenv').config();
+require('./config/db'); // Inicializar Postgres
+
+const taskRoutes = require('./routes/taskRoutes');
+const { connection } = require('./queues/taskQueue');
+
+const app = express();
+const server = http.createServer(app);
+const io = new Server(server, { cors: { origin: '*' } });
+
+const PORT = process.env.PORT || 4000;
+
+app.use(express.json());
+
+// Servir la interfaz web estática desde la carpeta public
+app.use(express.static(path.join(__dirname, '../public')));
+
+// Suscribirse a eventos de progreso en Redis
+const sub = new Redis(connection);
+sub.subscribe('job_updates');
+sub.on('message', (channel, message) => {
+  if (channel === 'job_updates') {
+    const data = JSON.parse(message);
+    io.to(`job_${data.jobId}`).emit('task_progress', data);
+    console.log(`[WebSocket] Notificación enviada a canal job_${data.jobId}:`, data);
+  }
+});
+
+// Evento de conexión Socket.io
+io.on('connection', (socket) => {
+  console.log(`Cliente WebSocket conectado: ${socket.id}`);
+
+  socket.on('subscribe_job', (jobId) => {
+    socket.join(`job_${jobId}`);
+    console.log(`Cliente ${socket.id} suscrito a job_${jobId}`);
+  });
+
+  socket.on('disconnect', () => {
+    console.log(`Cliente WebSocket desconectado: ${socket.id}`);
+  });
+});
+
+// Rutas de la API
+app.use('/api', taskRoutes);
+
+// Ruta fallback para la interfaz de usuario
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, '../public/index.html'));
+});
+
+server.listen(PORT, () => {
+  console.log(`Servidor HTTP y WebSockets corriendo en puerto ${PORT}`);
+});
