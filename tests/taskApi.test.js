@@ -1,18 +1,19 @@
 const request = require('supertest');
 const express = require('express');
-const taskRoutes = require('../src/routes/taskRoutes');
 
-// Mock de la cola para no requerir conexión real a Redis durante el test unitario
+// Mock total de los módulos externos para entornos CI sin servicios levantados
 jest.mock('../src/queues/taskQueue', () => ({
   taskQueue: {
     add: jest.fn().mockResolvedValue({ id: 'test-job-123' }),
   },
+  connection: {},
 }));
 
-// Mock de PostgreSQL
 jest.mock('../src/config/db', () => ({
   query: jest.fn().mockResolvedValue({ rows: [] }),
 }));
+
+const taskRoutes = require('../src/routes/taskRoutes');
 
 const app = express();
 app.use(express.json());
