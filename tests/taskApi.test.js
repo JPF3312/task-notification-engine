@@ -1,6 +1,11 @@
 const request = require('supertest');
 const express = require('express');
 
+// Mocks definidos ANTES de cualquier require
+jest.mock('../src/config/db', () => ({
+  query: jest.fn().mockResolvedValue({ rows: [{ id: 1 }] }),
+}));
+
 jest.mock('../src/queues/taskQueue', () => ({
   taskQueue: {
     add: jest.fn().mockResolvedValue({ id: 'test-job-123' }),
@@ -8,15 +13,11 @@ jest.mock('../src/queues/taskQueue', () => ({
   connection: {},
 }));
 
-jest.mock('../src/config/db', () => ({
-  query: jest.fn().mockResolvedValue({ rows: [] }),
-}));
-
-const taskRoutes = require('../src/routes/taskRoutes');
+const taskController = require('../src/controllers/taskController');
 
 const app = express();
 app.use(express.json());
-app.use('/api', taskRoutes);
+app.post('/api/tasks', taskController.createTask);
 
 describe('POST /api/tasks', () => {
   it('debe crear una nueva tarea y responder con status 202', async () => {
