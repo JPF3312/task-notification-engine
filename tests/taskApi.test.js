@@ -1,7 +1,6 @@
 const request = require('supertest');
 const express = require('express');
 
-// Mock total de los módulos externos para entornos CI sin servicios levantados
 jest.mock('../src/queues/taskQueue', () => ({
   taskQueue: {
     add: jest.fn().mockResolvedValue({ id: 'test-job-123' }),
